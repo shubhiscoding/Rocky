@@ -130,12 +130,18 @@ const ConversationMenuItem = ({
   return (
     <>
       <SidebarMenuItem>
-        <SidebarMenuButton asChild isActive={active}>
+        <SidebarMenuButton
+          asChild
+          isActive={active}
+          className={cn(
+            active && 'border-l-2 border-teal-500 pl-[calc(0.5rem-2px)] text-teal-400',
+          )}
+        >
           <Link href={`/chat/${id}`} onClick={() => onMarkAsRead(id)}>
             {hasUnread && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Bell className="h-4 w-4 shrink-0 text-pending" />
+                  <Bell className="h-4 w-4 shrink-0 text-teal-400" />
                 </TooltipTrigger>
               </Tooltip>
             )}
@@ -259,9 +265,11 @@ export const AppSidebarConversations = () => {
   if (isUserLoading) {
     return (
       <SidebarGroup>
-        <SidebarGroupLabel>Conversations</SidebarGroupLabel>
+        <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-muted-foreground/50">
+          History
+        </SidebarGroupLabel>
         <div className="flex items-center justify-center">
-          <Loader2 className="mt-4 h-4 w-4 animate-spin" />
+          <Loader2 className="mt-4 h-4 w-4 animate-spin text-teal-500" />
         </div>
       </SidebarGroup>
     );
@@ -271,12 +279,14 @@ export const AppSidebarConversations = () => {
     <SidebarGroup>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className="flex items-center justify-between pr-2">
-          <SidebarGroupLabel>Conversations</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-muted-foreground/50">
+            History
+          </SidebarGroupLabel>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground">
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 transition-transform duration-200',
+                  'h-3.5 w-3.5 transition-transform duration-200',
                   isOpen ? '' : '-rotate-90',
                 )}
               />
@@ -287,11 +297,11 @@ export const AppSidebarConversations = () => {
           <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
             {isConversationsLoading ? (
               <div className="flex items-center justify-center">
-                <Loader2 className="mt-4 h-4 w-4 animate-spin" />
+                <Loader2 className="mt-4 h-4 w-4 animate-spin text-teal-500" />
               </div>
             ) : !conversations?.length ? (
-              <p className="ml-2 text-xs text-muted-foreground">
-                No conversations
+              <p className="ml-2 mt-1 text-xs text-muted-foreground/50">
+                No talk yet. Start, question?
               </p>
             ) : (
               <SidebarMenu>

@@ -4,7 +4,6 @@ import { Attachment } from 'ai';
 import { SendHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { BorderBeam } from '@/components/ui/border-beam';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -59,9 +58,19 @@ export function ConversationInput({
 
   return (
     <div
-      className={`relative ${!onChat ? 'duration-500 animate-in fade-in slide-in-from-bottom-4' : ''}`}
+      className={cn(
+        'relative',
+        !onChat && 'duration-500 animate-in fade-in slide-in-from-bottom-4',
+      )}
     >
-      <div className="relative rounded-xl bg-muted">
+      <div
+        className={cn(
+          'relative rounded-2xl border bg-muted/40 transition-colors duration-200',
+          value
+            ? 'border-teal-500/50 shadow-sm shadow-teal-500/10'
+            : 'border-border/50 hover:border-border',
+        )}
+      >
         <form onSubmit={handleSubmit} className="flex flex-col">
           <Textarea
             ref={textareaRef}
@@ -70,33 +79,30 @@ export function ConversationInput({
             onKeyDown={handleKeyDown}
             maxLength={MAX_CHARS}
             placeholder={
-              onChat ? 'Send a message...' : 'Start a new conversation...'
+              onChat ? 'Ask Rocky anything...' : 'Ask Rocky anything...'
             }
-            className={cn(
-              'min-h-[110px] max-h-[350px] overflow-y-scroll w-full resize-none border-0 bg-transparent px-4 py-3 text-base focus-visible:ring-0 rounded-xl',
-            )}
+            className="min-h-[100px] max-h-[350px] w-full resize-none overflow-y-scroll rounded-2xl border-0 bg-transparent px-4 py-3.5 text-base focus-visible:ring-0"
           />
 
-          <div className="flex items-center justify-end border-t px-4 py-2">
-            <span className="mr-auto text-xs text-muted-foreground">
-              {value.length}/{MAX_CHARS}
+          <div className="flex items-center px-4 py-2.5">
+            <span className="mr-auto text-xs text-muted-foreground/50">
+              {value.length > 0 && `${value.length}/${MAX_CHARS}`}
             </span>
             <Button
               type="submit"
               size="icon"
-              variant="ghost"
               disabled={!value.trim()}
-              className="group relative flex h-8 w-8 items-center justify-center rounded-lg
-                transition-all duration-200 ease-in-out
-                hover:bg-primary hover:text-primary-foreground
-                active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(
+                'h-8 w-8 rounded-full transition-all duration-200',
+                value.trim()
+                  ? 'bg-teal-500 text-white hover:bg-teal-400 shadow-sm shadow-teal-500/30'
+                  : 'bg-muted text-muted-foreground',
+              )}
             >
-              <SendHorizontal className="h-4 w-4 transition-transform duration-200 ease-out group-hover:scale-110" />
+              <SendHorizontal className="h-4 w-4" />
             </Button>
           </div>
         </form>
-
-        {!onChat && <BorderBeam size={250} duration={8} delay={9} />}
       </div>
     </div>
   );

@@ -11,7 +11,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 import ChatInterface from '@/app/(user)/chat/[id]/chat-interface';
 import BlurFade from '@/components/ui/blur-fade';
-import TypingAnimation from '@/components/ui/typing-animation';
 import { useConversations } from '@/hooks/use-conversations';
 import { useUser } from '@/hooks/use-user';
 import { EVENTS } from '@/lib/events';
@@ -21,17 +20,9 @@ import { ConversationInput } from './conversation-input';
 import { getRandomSuggestions } from './data/suggestions';
 import { SuggestionCard } from './suggestion-card';
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-2 px-1 text-sm font-medium text-muted-foreground/80">
-      {children}
-    </h2>
-  );
-}
-
 export function HomeContent() {
   const pathname = usePathname();
-  const suggestions = useMemo(() => getRandomSuggestions(4), []);
+  const suggestions = useMemo(() => getRandomSuggestions(6), []);
   const [showChat, setShowChat] = useState(false);
   const [chatId, setChatId] = useState(() => uuidv4());
   const { user, isLoading: isUserLoading } = useUser();
@@ -80,9 +71,7 @@ export function HomeContent() {
   };
 
   useEffect(() => {
-    if (pathname === '/home') {
-      resetChat();
-    }
+    if (pathname === '/home') resetChat();
   }, [pathname, resetChat]);
 
   useEffect(() => {
@@ -93,7 +82,6 @@ export function HomeContent() {
         setShowChat(true);
       }
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [chatId, resetChat]);
@@ -107,43 +95,48 @@ export function HomeContent() {
   }
 
   const mainContent = (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-6 py-12">
-      <BlurFade delay={0.2}>
-        <TypingAnimation
-          className="mb-12 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-center text-4xl font-semibold tracking-tight text-transparent md:text-4xl lg:text-5xl"
-          duration={50}
-          text="Amaze amaze. How help you?"
-        />
+    <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-6 py-12">
+      {/* Ambient glow behind the input */}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-500/10 blur-3xl" />
+
+      <BlurFade delay={0.1}>
+        <div className="mb-2 flex items-center justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-600 text-xl font-black text-white shadow-lg shadow-teal-500/20">
+            ✦
+          </div>
+        </div>
       </BlurFade>
 
-      <div className="mx-auto w-full max-w-3xl space-y-8">
+      <BlurFade delay={0.2}>
+        <h1 className="mb-10 text-center text-3xl font-bold tracking-tight text-foreground/90 md:text-4xl lg:text-5xl">
+          Amaze amaze.{' '}
+          <span className="bg-gradient-to-r from-teal-400 to-cyan-500 bg-clip-text text-transparent">
+            How help you?
+          </span>
+        </h1>
+      </BlurFade>
+
+      <div className="relative mx-auto w-full max-w-2xl space-y-6">
         <BlurFade delay={0.1}>
           <ConversationInput
             value={input}
             onChange={setInput}
             onSubmit={handleSend}
-            savedPrompts={[]}
-            setSavedPrompts={() => {}}
           />
         </BlurFade>
 
-        <div className="space-y-8">
-          <BlurFade delay={0.2}>
-            <div className="space-y-2">
-              <SectionTitle>Suggestions</SectionTitle>
-              <div className="grid grid-cols-2 gap-4">
-                {suggestions.map((suggestion, index) => (
-                  <SuggestionCard
-                    key={suggestion.title}
-                    {...suggestion}
-                    delay={0.3 + index * 0.1}
-                    onSelect={setInput}
-                  />
-                ))}
-              </div>
-            </div>
-          </BlurFade>
-        </div>
+        <BlurFade delay={0.25}>
+          <div className="flex flex-wrap justify-center gap-2">
+            {suggestions.map((suggestion, index) => (
+              <SuggestionCard
+                key={suggestion.title}
+                {...suggestion}
+                delay={0.3 + index * 0.05}
+                onSelect={setInput}
+              />
+            ))}
+          </div>
+        </BlurFade>
       </div>
     </div>
   );

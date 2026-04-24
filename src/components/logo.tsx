@@ -4,19 +4,19 @@ export default function Logo({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex h-8 w-8 items-center justify-center rounded-full bg-teal-500 text-sm font-bold text-white',
+        'flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-400 to-cyan-600 text-sm font-black text-white shadow-sm',
         className,
       )}
     >
-      R
+      ✦
     </div>
   );
 }
 
 export function Brand({ className }: { className?: string }) {
   return (
-    <span className={cn('text-lg font-semibold text-teal-500', className)}>
-      Rocky
+    <span className={cn('font-bold tracking-tight', className)}>
+      <span className="text-teal-400">Rocky</span>
     </span>
   );
 }
