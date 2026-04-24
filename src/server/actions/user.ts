@@ -27,6 +27,27 @@ const PRIVY_SERVER_CLIENT = new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET, {
   }),
 });
 
+// In-memory cache: token → { userId, expiresAt }
+// Avoids a Privy network round-trip on every API request (~300-600ms saved).
+const tokenCache = new Map<string, { userId: string; expiresAt: number }>();
+const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function verifyPrivyToken(token: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = tokenCache.get(token);
+  if (cached && cached.expiresAt > now) {
+    return cached.userId;
+  }
+  try {
+    const claims = await PRIVY_SERVER_CLIENT.verifyAuthToken(token);
+    tokenCache.set(token, { userId: claims.userId, expiresAt: now + TOKEN_CACHE_TTL_MS });
+    return claims.userId;
+  } catch {
+    tokenCache.delete(token);
+    return null;
+  }
+}
+
 const getOrCreateUser = actionClient
   .schema(z.object({ userId: z.string() }))
   .action<ActionResponse<PrismaUser>>(async ({ parsedInput: { userId } }) => {
@@ -128,10 +149,11 @@ export const verifyUser = actionClient.action<
   }
 
   try {
-    const claims = await PRIVY_SERVER_CLIENT.verifyAuthToken(token);
+    const privyUserId = await verifyPrivyToken(token);
+    if (!privyUserId) return { success: false, error: 'Authentication failed' };
 
     // getOrCreateUser ensures user + wallet exist before we proceed
-    const userResponse = await getOrCreateUser({ userId: claims.userId });
+    const userResponse = await getOrCreateUser({ userId: privyUserId });
     if (!userResponse?.data?.success || !userResponse.data?.data) {
       return { success: false, error: 'Failed to get or create user' };
     }
@@ -174,8 +196,9 @@ export const getUserData = actionClient.action<ActionResponse<PrismaUser>>(async
   }
 
   try {
-    const claims = await PRIVY_SERVER_CLIENT.verifyAuthToken(token);
-    const response = await getOrCreateUser({ userId: claims.userId });
+    const privyUserId = await verifyPrivyToken(token);
+    if (!privyUserId) return { success: false, error: 'Authentication failed' };
+    const response = await getOrCreateUser({ userId: privyUserId });
     if (!response?.data?.success) {
       return { success: false, error: response?.data?.error };
     }

@@ -23,8 +23,6 @@ import { FloatingWallet } from '@/components/floating-wallet';
 import Logo from '@/components/logo';
 import { ToolResult } from '@/components/message/tool-result';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import usePolling from '@/hooks/use-polling';
-import { useUser } from '@/hooks/use-user';
 import { useWalletPortfolio } from '@/hooks/use-wallet-portfolio';
 import { EVENTS } from '@/lib/events';
 import { cn } from '@/lib/utils';
@@ -396,15 +394,6 @@ export default function ChatInterface({
     if (!toolUpdates || toolUpdates.length === 0) return chatMessages;
     return applyToolUpdates(chatMessages, toolUpdates);
   }, [chatMessages, data]);
-
-  usePolling({
-    url: `/api/chat/${id}`,
-    onUpdate: (data: Message[]) => {
-      if (!data) return;
-      if (data && data.length) setMessages(data);
-      window.dispatchEvent(new CustomEvent(EVENTS.CONVERSATION_READ));
-    },
-  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const {

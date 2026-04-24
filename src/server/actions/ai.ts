@@ -19,19 +19,32 @@ import { getPrivyClient, verifyUser } from './user';
 export async function generateTitleFromUserMessage({
   message,
 }: {
-  message: string;
+  message: string | unknown;
 }) {
+  // Extract plain text from string or parts array
+  let text: string;
+  if (typeof message === 'string') {
+    text = message;
+  } else if (Array.isArray(message)) {
+    text = (message as any[])
+      .filter((p) => p?.type === 'text')
+      .map((p) => p.text)
+      .join(' ');
+  } else {
+    text = String(message ?? '');
+  }
+
+  if (!text.trim()) return 'New Conversation';
+
   const { text: title } = await generateText({
     model: defaultModel,
-    system: `\n
-        - you will generate a short title based on the first message a user begins a conversation with
-        - ensure it is not more than 80 characters long
-        - the title should be a summary of the user's message
-        - do not use quotes or colons`,
-    prompt: JSON.stringify(message),
+    system:
+      'Generate a short title (max 60 chars) for a chat conversation based on the first user message. ' +
+      'Return only the title text — no quotes, no colons, no explanation.',
+    prompt: text,
   });
 
-  return title;
+  return title.slice(0, 80);
 }
 
 export async function convertUserResponseToBoolean(message: string) {

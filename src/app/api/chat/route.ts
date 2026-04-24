@@ -4,7 +4,6 @@ import {
   CoreTool,
   Message,
   NoSuchToolError,
-  appendResponseMessages,
   createDataStreamResponse,
   generateObject,
   smoothStream,
@@ -27,7 +26,6 @@ import {
   handleConfirmation,
 } from '@/lib/utils/ai';
 import { generateTitleFromUserMessage } from '@/server/actions/ai';
-import { getToolsFromOrchestrator } from '@/server/actions/orchestrator';
 import { verifyUser } from '@/server/actions/user';
 import {
   dbCreateConversation,
@@ -157,22 +155,14 @@ export async function POST(req: Request) {
           updates.forEach((u) => dataStream.writeData(u));
         }
 
-        let toolsRequired: string[] | undefined;
-        try {
-          const orchestratorResult = await getToolsFromOrchestrator(
-            relevant,
-            degenMode || confirmationHandled,
-          );
-          toolsRequired = orchestratorResult.toolsRequired;
-          console.log('toolsRequired', toolsRequired);
-        } catch (err) {
-          console.warn('[chat/route] Orchestrator failed, using all tools:', err);
-        }
+        logWithTiming(startTime, '[chat/route] building tools');
 
-        logWithTiming(startTime, '[chat/route] getToolsFromOrchestrator complete');
-
-        const tools = toolsRequired
-          ? getToolsFromRequiredTools(toolsRequired)
+        // Rocky has only 4 AUDD tools — no orchestrator needed.
+        // Load all tools but strip askForConfirmation when confirmation was just handled.
+        const tools = (degenMode || confirmationHandled)
+          ? getToolsFromRequiredTools(
+              Object.keys(defaultTools).filter((t) => t !== 'askForConfirmation'),
+            )
           : defaultTools;
 
         const result = streamText({
@@ -214,47 +204,51 @@ export async function POST(req: Request) {
           experimental_transform: smoothStream(),
           maxSteps: 15,
           messages: relevant,
-          async onFinish({ response }) {
+          async onFinish({ text, toolCalls, toolResults }) {
             if (!userId) return;
             try {
-              logWithTiming(startTime, '[chat/route] streamText.onFinish complete');
+              logWithTiming(startTime, '[chat/route] streamText.onFinish fired');
 
-              const finalMessages = appendResponseMessages({
-                messages: [],
-                responseMessages: response.messages,
-              }).filter(
-                (m) =>
-                  m.content !== '' || (m.toolInvocations || []).length !== 0,
-              );
-
-              const now = new Date();
-              finalMessages.forEach((m, index) => {
-                if (m.createdAt) {
-                  m.createdAt = new Date(m.createdAt.getTime() + index);
-                } else {
-                  m.createdAt = new Date(now.getTime() + index);
-                }
+              // Combine tool calls + results into the ToolInvocation shape the UI expects.
+              const toolInvocations: Record<string, unknown>[] = (toolCalls ?? []).map((tc) => {
+                const found = (toolResults ?? []).find(
+                  (tr: any) => tr.toolCallId === tc.toolCallId,
+                ) as any;
+                return {
+                  state: found ? 'result' : 'call',
+                  toolCallId: (tc as any).toolCallId,
+                  toolName: (tc as any).toolName,
+                  args: (tc as any).args,
+                  ...(found && { result: found.result }),
+                };
               });
 
+              const hasContent = text.trim() !== '';
+              const hasTools = toolInvocations.length > 0;
+
+              if (!hasContent && !hasTools) {
+                console.warn('[chat/route] onFinish: empty response, skipping save');
+                return;
+              }
+
               await dbCreateMessages({
-                messages: finalMessages.map((m) => ({
-                  conversationId,
-                  createdAt: m.createdAt,
-                  role: m.role,
-                  content: m.content,
-                  toolInvocations: m.toolInvocations
-                    ? JSON.parse(JSON.stringify(m.toolInvocations))
-                    : undefined,
-                  experimental_attachments: m.experimental_attachments
-                    ? JSON.parse(JSON.stringify(m.experimental_attachments))
-                    : undefined,
-                })),
+                messages: [
+                  {
+                    conversationId,
+                    role: 'assistant',
+                    content: text,
+                    toolInvocations: hasTools
+                      ? (JSON.parse(JSON.stringify(toolInvocations)) as any)
+                      : null,
+                    experimental_attachments: null,
+                  },
+                ],
               });
 
               logWithTiming(startTime, '[chat/route] dbCreateMessages complete');
               revalidatePath('/api/conversations');
             } catch (error) {
-              console.error('[chat/route] Failed to save messages', error);
+              console.error('[chat/route] Failed to save messages:', error);
             }
           },
         });

@@ -41,7 +41,6 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useConversations } from '@/hooks/use-conversations';
-import usePolling from '@/hooks/use-polling';
 import { useUser } from '@/hooks/use-user';
 import { EVENTS } from '@/lib/events';
 import { cn } from '@/lib/utils';
@@ -221,46 +220,37 @@ export const AppSidebarConversations = () => {
   // Add state for collapsible
   const [isOpen, setIsOpen] = useState(true);
 
-  // Handle active conversation and refresh if needed
+  // Set active conversation based on URL
   useEffect(() => {
     const chatId = pathname.startsWith('/chat/')
       ? pathname.split('/')[2]
       : null;
-
     setActiveId(chatId);
 
-    const handleConversationRead = async () => {
-      if (chatId) {
-        handleMarkAsRead(chatId);
-      }
+    // If navigating to a conversation we don't have in the list yet, fetch it
+    if (chatId && conversations && !conversations.find((c) => c.id === chatId)) {
+      refreshConversations();
+    }
+  }, [pathname, setActiveId, conversations, refreshConversations]);
+
+  // Refresh the list whenever an AI response finishes (new conversation or updated title)
+  useEffect(() => {
+    const handleConversationRead = () => {
+      const chatId = pathname.startsWith('/chat/') ? pathname.split('/')[2] : null;
+      if (chatId) handleMarkAsRead(chatId);
+      refreshConversations();
     };
 
     window.addEventListener(EVENTS.CONVERSATION_READ, handleConversationRead);
-
-    return () => {
-      // Cleanup event listener on unmount or dependency change
-      window.removeEventListener(
-        EVENTS.CONVERSATION_READ,
-        handleConversationRead,
-      );
-    };
-  }, [pathname, setActiveId, conversations, refreshConversations]);
+    return () => window.removeEventListener(EVENTS.CONVERSATION_READ, handleConversationRead);
+  // refreshConversations is stable (useCallback), pathname is the only thing that changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const handleMarkAsRead = (id: string) => {
-    // Update conversation in local store
     markAsRead(id);
-
-    // Emit event to update conversation read status
     markConversationAsRead({ id });
   };
-
-  // Use polling for refreshing conversations
-  usePolling({
-    url: null,
-    onUpdate: () => {
-      refreshConversations();
-    },
-  });
 
   if (isUserLoading) {
     return (
