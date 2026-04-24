@@ -49,6 +49,35 @@ const getOrCreateUser = actionClient
     });
 
     if (existingUser) {
+      // Create a wallet if the user exists but has none
+      if (existingUser.wallets.length === 0) {
+        const { publicKey, encryptedPrivateKey } = await generateEncryptedKeyPair();
+        const wallet = await prisma.wallet.create({
+          data: {
+            ownerId: existingUser.id,
+            name: 'Default',
+            publicKey,
+            encryptedPrivateKey,
+          },
+        });
+        return {
+          success: true,
+          data: {
+            ...existingUser,
+            wallets: [
+              {
+                id: wallet.id,
+                ownerId: wallet.ownerId,
+                name: wallet.name,
+                publicKey: wallet.publicKey,
+                walletSource: wallet.walletSource,
+                active: wallet.active,
+                chain: wallet.chain,
+              },
+            ],
+          } as unknown as PrismaUser,
+        };
+      }
       return { success: true, data: existingUser as unknown as PrismaUser };
     }
 
@@ -100,20 +129,28 @@ export const verifyUser = actionClient.action<
 
   try {
     const claims = await PRIVY_SERVER_CLIENT.verifyAuthToken(token);
-    const user = await prisma.user.findUnique({
-      where: { privyId: claims.userId },
-      select: {
-        id: true,
-        privyId: true,
-        wallets: {
-          select: { publicKey: true },
-          where: { active: true },
-        },
-      },
-    });
 
-    if (!user) {
-      return { success: false, error: 'User not found' };
+    // getOrCreateUser ensures user + wallet exist before we proceed
+    const userResponse = await getOrCreateUser({ userId: claims.userId });
+    if (!userResponse?.data?.success || !userResponse.data?.data) {
+      return { success: false, error: 'Failed to get or create user' };
+    }
+
+    const user = userResponse.data.data;
+
+    // If user exists but somehow has no wallet yet, create one now
+    let publicKey = user.wallets?.[0]?.publicKey;
+    if (!publicKey) {
+      const { publicKey: newPubKey, encryptedPrivateKey } = await generateEncryptedKeyPair();
+      await prisma.wallet.create({
+        data: {
+          ownerId: user.id,
+          name: 'Default',
+          publicKey: newPubKey,
+          encryptedPrivateKey,
+        },
+      });
+      publicKey = newPubKey;
     }
 
     return {
@@ -121,8 +158,8 @@ export const verifyUser = actionClient.action<
       data: {
         id: user.id,
         privyId: user.privyId,
-        publicKey: user.wallets[0]?.publicKey,
-        degenMode: false, // MVP always requires confirmation
+        publicKey,
+        degenMode: false,
       },
     };
   } catch {

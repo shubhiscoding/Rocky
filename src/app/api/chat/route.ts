@@ -157,12 +157,17 @@ export async function POST(req: Request) {
           updates.forEach((u) => dataStream.writeData(u));
         }
 
-        const { toolsRequired } = await getToolsFromOrchestrator(
-          relevant,
-          degenMode || confirmationHandled,
-        );
-
-        console.log('toolsRequired', toolsRequired);
+        let toolsRequired: string[] | undefined;
+        try {
+          const orchestratorResult = await getToolsFromOrchestrator(
+            relevant,
+            degenMode || confirmationHandled,
+          );
+          toolsRequired = orchestratorResult.toolsRequired;
+          console.log('toolsRequired', toolsRequired);
+        } catch (err) {
+          console.warn('[chat/route] Orchestrator failed, using all tools:', err);
+        }
 
         logWithTiming(startTime, '[chat/route] getToolsFromOrchestrator complete');
 

@@ -362,6 +362,7 @@ export default function ChatInterface({
     data,
     setInput,
     setMessages,
+    append,
   } = useChat({
     id,
     maxSteps: 10,
@@ -369,9 +370,6 @@ export default function ChatInterface({
     sendExtraMessageFields: true,
     body: { id },
     onFinish: () => {
-      if (window.location.pathname === `/chat/${id}`) {
-        window.history.replaceState({}, '', `/chat/${id}`);
-      }
       refresh();
       window.dispatchEvent(new CustomEvent(EVENTS.CONVERSATION_READ));
     },
@@ -382,6 +380,16 @@ export default function ChatInterface({
       } as unknown as JSONValue;
     },
   });
+
+  // Auto-submit a pending message stored by the home page before navigating here
+  useEffect(() => {
+    const pendingKey = `pending-chat-${id}`;
+    const pendingMessage = sessionStorage.getItem(pendingKey);
+    if (!pendingMessage) return;
+    sessionStorage.removeItem(pendingKey);
+    append({ role: 'user', content: pendingMessage });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const messages = useMemo(() => {
     const toolUpdates = data as unknown as ToolUpdate[];

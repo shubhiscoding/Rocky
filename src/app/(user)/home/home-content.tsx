@@ -1,90 +1,45 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-import { Attachment, JSONValue } from 'ai';
-import { useChat } from 'ai/react';
 import { Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
-import ChatInterface from '@/app/(user)/chat/[id]/chat-interface';
 import BlurFade from '@/components/ui/blur-fade';
-import { useConversations } from '@/hooks/use-conversations';
 import { useUser } from '@/hooks/use-user';
-import { EVENTS } from '@/lib/events';
-import { cn } from '@/lib/utils';
+import { createConversationStub } from '@/server/actions/conversation';
 
 import { ConversationInput } from './conversation-input';
 import { getRandomSuggestions } from './data/suggestions';
 import { SuggestionCard } from './suggestion-card';
 
 export function HomeContent() {
-  const pathname = usePathname();
+  const router = useRouter();
   const suggestions = useMemo(() => getRandomSuggestions(6), []);
-  const [showChat, setShowChat] = useState(false);
-  const [chatId, setChatId] = useState(() => uuidv4());
-  const { user, isLoading: isUserLoading } = useUser();
+  const [input, setInput] = useState('');
+  const [chatId] = useState(() => uuidv4());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isLoading: isUserLoading } = useUser();
 
-  const { conversations, refreshConversations } = useConversations(user?.id);
+  const handleSend = async (value: string) => {
+    if (!value.trim() || isSubmitting) return;
+    setIsSubmitting(true);
 
-  const resetChat = useCallback(() => {
-    setShowChat(false);
-    setChatId(uuidv4());
-  }, []);
+    try {
+      // Store the message so ChatInterface can auto-submit it on mount
+      sessionStorage.setItem(`pending-chat-${chatId}`, value);
 
-  const { messages, input, handleSubmit, setInput } = useChat({
-    id: chatId,
-    initialMessages: [],
-    body: { id: chatId },
-    onFinish: () => {
-      if (chatId && !conversations?.find((conv) => conv.id === chatId)) {
-        refreshConversations().then(() => {
-          window.dispatchEvent(new CustomEvent(EVENTS.CONVERSATION_READ));
-        });
-      }
-    },
-    experimental_prepareRequestBody: ({ messages }) => {
-      return {
-        message: messages[messages.length - 1],
-        id: chatId,
-      } as unknown as JSONValue;
-    },
-  });
+      // Create a stub conversation so the chat page doesn't 404
+      await createConversationStub({ conversationId: chatId });
 
-  const handleSend = async (value: string, attachments: Attachment[]) => {
-    if (!value.trim() && (!attachments || attachments.length === 0)) return;
-
-    const fakeEvent = {
-      preventDefault: () => {},
-      type: 'submit',
-    } as React.FormEvent;
-
-    await handleSubmit(fakeEvent, {
-      data: value,
-      experimental_attachments: attachments,
-    });
-
-    setShowChat(true);
-    window.history.replaceState(null, '', `/chat/${chatId}`);
+      router.push(`/chat/${chatId}`);
+    } catch {
+      sessionStorage.removeItem(`pending-chat-${chatId}`);
+      setIsSubmitting(false);
+    }
   };
-
-  useEffect(() => {
-    if (pathname === '/home') resetChat();
-  }, [pathname, resetChat]);
-
-  useEffect(() => {
-    const handlePopState = () => {
-      if (location.pathname === '/home') {
-        resetChat();
-      } else if (location.pathname === `/chat/${chatId}`) {
-        setShowChat(true);
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [chatId, resetChat]);
 
   if (isUserLoading) {
     return (
@@ -94,7 +49,7 @@ export function HomeContent() {
     );
   }
 
-  const mainContent = (
+  return (
     <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-6 py-12">
       {/* Ambient glow behind the input */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-500/10 blur-3xl" />
@@ -138,31 +93,6 @@ export function HomeContent() {
           </div>
         </BlurFade>
       </div>
-    </div>
-  );
-
-  return (
-    <div className="relative h-screen">
-      {!showChat && (
-        <div
-          className={cn(
-            'absolute inset-0 overflow-y-auto overflow-x-hidden transition-opacity duration-300',
-            showChat ? 'pointer-events-none opacity-0' : 'opacity-100',
-          )}
-        >
-          {mainContent}
-        </div>
-      )}
-      {showChat && (
-        <div
-          className={cn(
-            'absolute inset-0 transition-opacity duration-300',
-            showChat ? 'opacity-100' : 'pointer-events-none opacity-0',
-          )}
-        >
-          <ChatInterface id={chatId} initialMessages={messages} />
-        </div>
-      )}
     </div>
   );
 }

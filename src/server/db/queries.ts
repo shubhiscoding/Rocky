@@ -42,8 +42,10 @@ export async function dbCreateConversation({
   title: string;
 }) {
   try {
-    return await prisma.conversation.create({
-      data: { id: conversationId, userId, title },
+    return await prisma.conversation.upsert({
+      where: { id: conversationId },
+      create: { id: conversationId, userId, title },
+      update: { title },
     });
   } catch (error) {
     console.error('[DB Error] Failed to create conversation:', { conversationId, userId, error });

@@ -31,7 +31,7 @@ export async function getToolsFromOrchestrator(
   if (toolsRequired.length === 0) {
     return { usage, toolsRequired: undefined };
   } else {
-    const allTools = new Set(['searchToken', 'swapTokens', ...toolsRequired]);
+    const allTools = new Set(toolsRequired);
     const filteredTools = [...allTools].filter(
       (tool) => tool !== 'askForConfirmation' || !excludeConfirmationTool,
     );

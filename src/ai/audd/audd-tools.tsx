@@ -216,7 +216,7 @@ export const auddTools = {
         const agent = agentResult?.data?.data?.agent;
         if (!agent) throw new Error('Failed to retrieve agent kit');
 
-        const pubkey = agent.wallet.publicKey.toBase58();
+        const pubkey = agent.wallet_address.toBase58();
         const { fungibleTokens } = await searchWalletAssets(pubkey);
         const portfolio = transformToPortfolio(pubkey, fungibleTokens, []);
 

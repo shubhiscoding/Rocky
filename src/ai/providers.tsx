@@ -11,7 +11,7 @@ import { auddTools } from './audd/audd-tools';
 const usingAnthropic = !!process.env.ANTHROPIC_API_KEY;
 
 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const claude35Sonnet = anthropic('claude-3-5-sonnet-20241022');
+const claude35Sonnet = anthropic('claude-sonnet-4-5');
 
 const openai = createOpenAI({
   baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
@@ -19,9 +19,10 @@ const openai = createOpenAI({
   compatibility: 'strict',
 });
 
-export const orchestratorModel = openai('gpt-4o-mini');
 const openAiModel = openai(process.env.OPENAI_MODEL_NAME || 'gpt-4o');
 export const defaultModel = usingAnthropic ? claude35Sonnet : openAiModel;
+// Use Claude for orchestration when available so an OpenAI key isn't required
+export const orchestratorModel = usingAnthropic ? claude35Sonnet : openai('gpt-4o-mini');
 
 export const defaultSystemPrompt = `
 Your name is Rocky. You are an AI financial agent for Solana with AUDD (Australian Dollar stablecoin) as your native currency.
