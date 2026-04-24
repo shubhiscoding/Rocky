@@ -25,7 +25,7 @@ export default function AuthProviders({
       config={{
         appearance: {
           theme: resolvedTheme as 'light' | 'dark',
-          logo: '/icons/solscan.svg',
+          logo: undefined,
         },
         externalWallets: {
           solana: {
